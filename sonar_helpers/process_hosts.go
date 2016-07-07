@@ -6,14 +6,15 @@ import (
 	"crypto/sha1"
 	"encoding/csv"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"gopkg.in/olivere/elastic.v3"
 	"io"
 	"log"
 	"os"
-	"time"
 	"sync"
+	"time"
+
+	"encoding/json"
 )
 
 type Host struct {
@@ -25,12 +26,17 @@ type Host struct {
 	Hash        string `json:"hash"`
 	Source      string `json:"source"`
 	LastSeen    string `json:"last_seen"`
+	FirstSeen   string `json:"first_seen,omitempty"`
+	Id          string `json:"id,omitempty"`
+}
+
+func (h *Host) SetFirstSeen(ts string) {
+	h.FirstSeen = ts
 }
 
 type ProcessGeoIP struct {
 	id int
 }
-
 
 func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done chan struct{}) {
 
@@ -51,6 +57,7 @@ func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done
 
 	reader := csv.NewReader(bufio.NewReader(hf))
 	for {
+
 		data, err := reader.Read()
 		if err != nil {
 			if err == io.EOF {
@@ -59,21 +66,29 @@ func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done
 				if lasterr != nil {
 					log.Println(err)
 				} */
-				break
+				fmt.Println("Got EOF we should be done!!!")
+				return
+
 			}
 		}
 
 		source := "sonar"
 		host, hash := data[0], data[1]
 		last_seen, _ := time.Parse("20060102", hostsfile[0:8])
-		lastseen := last_seen.String()
-		newhost := Host{Host: host, Hash: hash, LastSeen: lastseen, Source: source}
-		lookupchan <- newhost
+		lastseen := last_seen.Format(time.RFC3339)
+		if hostsfile[0:8] == "20131030" {
+			firstseen := lastseen
+			newhost := Host{Host: host, Hash: hash, LastSeen: lastseen, FirstSeen: firstseen, Source: source}
+			lookupchan <- newhost
+		} else {
+			newhost := Host{Host: host, Hash: hash, LastSeen: lastseen, Source: source}
+			lookupchan <- newhost
+		}
 
 	}
 }
 
-func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}){
+func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}) {
 	defer wg.Done()
 
 	client, err := elastic.NewClient()
@@ -86,13 +101,35 @@ func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}){
 		log.Fatal(err)
 	}
 	if !exists {
-		_, err = client.CreateIndex("passive-ssl-sonar-hosts").Do()
+		mapping := `{
+    "settings":{
+        "number_of_shards":5,
+        "number_of_replicas":0
+    },
+    "mappings":{
+         "host" : {
+        "properties" : {
+          "host": {"type": "ip", "index": "analyzed"},
+          "hash": {"type": "string"},
+          "first_seen": {"type": "date", "format": "dateOptionalTime"},
+          "last_seen": {"type": "date", "format": "dateOptionalTime"},
+          "asn": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
+          "country_code": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
+          "city": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
+          "region": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
+          "port": {"type": "integer"},
+          "source": {"type": "string"}
+        }
+      }
+        }
+    }
+}`
+		_, err = client.CreateIndex("passive-ssl-sonar-hosts").BodyString(mapping).Do()
 		if err != nil {
 			panic(err)
 		}
 	}
 	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(500).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
-	fmt.Println(bulkerr)
 	if bulkerr != nil {
 		fmt.Println(bulkerr)
 	}
@@ -103,11 +140,11 @@ func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}){
 			hash_string := nh.Host + nh.Hash + nh.Source
 			hasher.Write([]byte(hash_string))
 			id := hex.EncodeToString(hasher.Sum(nil))
-			newho, _ := json.Marshal(nh)
-			fmt.Printf("Uploading host with id %v, %v", id, string(newho))
-			indexDoc := elastic.NewBulkUpdateRequest().Index("passive-ssl-sonar-hosts").Type("host").Id(id).Doc(string(newho)).DocAsUpsert(true)
+			indexDoc := elastic.NewBulkUpdateRequest().Index("passive-ssl-sonar-hosts").Type("host").Id(id).Doc(nh).DocAsUpsert(true)
 			p.Add(indexDoc)
 		case <-Done:
+			fmt.Println("Got done in es...flushing")
+			p.Flush()
 			break
 
 		}
@@ -121,19 +158,76 @@ func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}){
 
 }
 
+func search_newhosts() {
+	client, err := elastic.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(500).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
+	if bulkerr != nil {
+		fmt.Println(bulkerr)
+	}
+	query := elastic.NewBoolQuery()
+	query = query.MustNot(elastic.NewExistsQuery("first_seen"))
+	fmt.Println("Search hits are:")
+	sr, err := client.Scan().Index("passive-ssl-sonar-hosts").Query(query).FetchSource(true).Do()
+	//sr, err := client.Scroll().Index("passive-ssl-sonar-hosts").Query(query).Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(sr.TotalHits())
+
+	if sr.TotalHits() > 0 {
+		fmt.Printf("Found a total of %d hosts\n", sr.TotalHits())
+		for {
+			res, err := sr.Next()
+			if err == elastic.EOS {
+				break
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
+			// Iterate through results
+			for _, hit := range res.Hits.Hits {
+				var t Host
+				id := hit.Id
+				err := json.Unmarshal(*hit.Source, &t)
+				if err != nil {
+					log.Fatal(err)
+				}
+				t.SetFirstSeen(t.LastSeen)
+				indexDoc := elastic.NewBulkUpdateRequest().Index("passive-ssl-sonar-hosts").Type("host").Id(id).Doc(t).DocAsUpsert(true)
+				p.Add(indexDoc)
+			}
+		}
+	} else {
+		fmt.Print("Found no hosts\n")
+	}
+	p.Flush()
+
+}
+
 func Process_Hosts(hostsfile string) {
-	lookupchan := make(chan Host)
-	indexchan := make(chan Host, 1000)
+
+	lookupchan := make(chan Host, 10000)
+	indexchan := make(chan Host, 10000)
 	var wg sync.WaitGroup
 	Done := make(chan struct{})
 	defer close(Done)
-
+	fmt.Println("Starting import at: ", time.Now())
 	for w := 1; w <= 3; w++ {
 		go Lookup_ip(lookupchan, indexchan, Done)
 	}
-
+	wg.Add(2)
 	go file_reader(lookupchan, hostsfile, wg, Done)
 	go ESWriter(indexchan, wg, Done)
 
 	wg.Wait()
+	fmt.Println("Finished import at: ", time.Now())
+	fmt.Println("Update first_seen started at: ", time.Now())
+
+	// Now we need to go back and update...hopefully it works
+	search_newhosts()
+	fmt.Println("Update first_seen finished at: ", time.Now())
+
 }

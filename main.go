@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+type SonarImportedFile struct {
+	File string `json:"file"`
+	Sha1 string `json:"sha1"`
+}
+
 func main() {
 	client, err := elastic.NewClient()
 	import_check := sonar_helpers.Check_index_and_create("scansio-sonar-ssl-imported")
@@ -23,10 +28,7 @@ func main() {
 	fmt.Println(searchResult.Hits.TotalHits)
 	importedfiles := map[string]bool{}
 	if searchResult.Hits.TotalHits > 0 {
-		type SonarImportedFile struct {
-			File string `json:"file"`
-			Sha1 string `json:"sha1"`
-		}
+
 		for _, hit := range searchResult.Hits.Hits {
 			var t SonarImportedFile
 			err := json.Unmarshal(*hit.Source, &t)
@@ -101,9 +103,12 @@ func main() {
 
 					}
 					sonar_helpers.Process_Hosts(fname)
-					//country, city, region, asn := sonar_helpers.Lookup_ip("8.8.8.8")
-					//fmt.Printf("We got Country: %v\n City: %v\n Region: %v\n ASN: %v\n", country, city, region, asn)
-
+					parsed_file := SonarImportedFile{File: fname, Sha1: f.Fingerprint}
+					_, err := client.Index().Index("scansio-sonar-ssl-imported").Type("imported-file").Id(f.Fingerprint).BodyJson(parsed_file).Do()
+					if err != nil {
+						// Handle error
+						panic(err)
+					}
 				}
 
 			}
