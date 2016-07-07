@@ -5,15 +5,27 @@ import (
 	"github.com/abh/geoip"
 )
 
-func Lookup_ip(lookup chan *Host, index chan *Host) {
-	for {
-		newhost := <-lookup
-		newhost.Asn = lookup_asn(newhost.Host)
-		newhost.CountryCode, newhost.City, newhost.Region = lookup_geo(newhost.Host)
-		index <- newhost
+func Lookup_ip(lookup chan Host, index chan Host, Done chan struct{}) {
+	giasn, err := geoip.Open("geoip/GeoIPASNum.dat")
+	if err != nil{
+		fmt.Printf("Unable to open GeoIP ASN Database")
 	}
-	close(lookup)
+	geofile := "geoip/GeoLiteCity.dat"
+	gi, err := geoip.Open(geofile)
+	if err != nil {
+		fmt.Printf("Unable to open GeoIP datanase \n")
+	}
+	for {
+		select{
+		case newhost := <- lookup:
+			newhost.Asn = lookup_asn(newhost.Host, giasn)
+			newhost.CountryCode, newhost.City, newhost.Region = lookup_geo(newhost.Host, gi)
+			index <- newhost
+		case <- Done:
+			return
+		}
 
+	}
 }
 
 /*
@@ -25,13 +37,8 @@ func Lookup_ip(ip string) (country string, city string, region string, asn strin
 	return country, city, region, asn
 }*/
 
-func lookup_asn(ip string) (asn string) {
+func lookup_asn(ip string, giasn geoip.GeoIP) (asn string) {
 	asn = ""
-	asnfile := "geoip/GeoIPASNum.dat"
-	giasn, err := geoip.Open(asnfile)
-	if err != nil {
-		fmt.Printf("Unable to open GeoIP ASN datanase \n")
-	}
 	if giasn != nil {
 		name, _ := giasn.GetName(ip)
 		return name
@@ -40,15 +47,10 @@ func lookup_asn(ip string) (asn string) {
 
 }
 
-func lookup_geo(ip string) (country string, city string, region string) {
+func lookup_geo(ip string, gi geoip.GeoIP) (country string, city string, region string) {
 	country = ""
 	city = ""
 	region = ""
-	geofile := "geoip/GeoLiteCity.dat"
-	gi, err := geoip.Open(geofile)
-	if err != nil {
-		fmt.Printf("Unable to open GeoIP datanase \n")
-	}
 
 	if gi != nil {
 		record := gi.GetRecord(ip)
