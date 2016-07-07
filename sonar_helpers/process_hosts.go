@@ -76,14 +76,24 @@ func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done
 		host, hash := data[0], data[1]
 		last_seen, _ := time.Parse("20060102", hostsfile[0:8])
 		lastseen := last_seen.Format(time.RFC3339)
+		newhost := Host{}
 		if hostsfile[0:8] == "20131030" {
 			firstseen := lastseen
-			newhost := Host{Host: host, Hash: hash, LastSeen: lastseen, FirstSeen: firstseen, Source: source}
-			lookupchan <- newhost
+			newhost.FirstSeen = firstseen
+			newhost.LastSeen = lastseen
+			newhost.Host = host
+			newhost.Hash = hash
+			newhost.Source = source
 		} else {
-			newhost := Host{Host: host, Hash: hash, LastSeen: lastseen, Source: source}
-			lookupchan <- newhost
+			newhost.LastSeen = lastseen
+			newhost.Host = host
+			newhost.Hash = hash
+			newhost.Source = source
 		}
+		select {
+		case lookupchan <- newhost:
+ 		case <- Done: return
+ 		}
 
 	}
 }
@@ -218,7 +228,9 @@ func Process_Hosts(hostsfile string) {
 	for w := 1; w <= 3; w++ {
 		go Lookup_ip(lookupchan, indexchan, Done)
 	}
+
 	wg.Add(2)
+
 	go file_reader(lookupchan, hostsfile, wg, Done)
 	go ESWriter(indexchan, wg, Done)
 
