@@ -11,18 +11,9 @@ import (
 
 func main() {
 	client, err := elastic.NewClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-	exists, err := client.IndexExists("scansio-sonar-ssl-imported").Do()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if !exists {
-		_, err = client.CreateIndex("scansio-sonar-ssl-imported").Do()
-		if err != nil {
-			log.Fatal(err)
-		}
+	import_check := sonar_helpers.Check_index_and_create("scansio-sonar-ssl-imported")
+	if import_check == false {
+		log.Fatal("We couldn't create a index properly exit out now!")
 	}
 	query := elastic.NewMatchAllQuery()
 	searchResult, err := client.Search().Index("scansio-sonar-ssl-imported").Query(query).Do()
@@ -44,7 +35,6 @@ func main() {
 				fmt.Println("we had an error: ", err)
 			}
 			importedfiles[t.File] = true
-			fmt.Println(importedfiles)
 		}
 	}
 	res := sonar_helpers.DownloadFeed()
@@ -65,16 +55,54 @@ func main() {
 				if strings.Contains(fname, "certs.gz") {
 					fmt.Printf("We need to import %v \n", fname)
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
-					sonar_helpers.DownloadFile(f.Name, fname)
+					err := sonar_helpers.DownloadFile(f.Name, fname)
+					if err != nil {
+						log.Fatal("We had an error in downloading file ", fname, err)
+					}
+					fmt.Printf("Download of file %v is successful %v", fname)
+					check, err := sonar_helpers.Check_sha1(fname, f.Fingerprint)
+					if err != nil {
+						fmt.Printf("Error with sha1 on this file %v with error \n", f.Name, err)
+						continue
+					}
+					if check == false {
+						fmt.Printf("Error with sha1 on this file %v \n", f.Name)
+						continue
+					}
 				}
 				if strings.Contains(fname, "hosts.gz") {
 					fmt.Printf("We need to import %v \n", fname)
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
-					res, err := sonar_helpers.DownloadFile(f.Name, fname)
-					if err != nil {
-						log.Fatal("We had an error on downloading file ", fname, err)
+					checkdownload, _ := sonar_helpers.Check_downloaded(fname, f.Fingerprint)
+					if checkdownload == true {
+						check, _ := sonar_helpers.Check_sha1(fname, f.Fingerprint)
+						if check == false {
+							err := sonar_helpers.DownloadFile(f.Name, fname)
+							if err != nil {
+								log.Fatal("We had an error on downloading file ", fname, err)
+							}
+							fmt.Printf("Download of file %v is successful %v \n", fname)
+						}
+					} else {
+						err := sonar_helpers.DownloadFile(f.Name, fname)
+						if err != nil {
+							log.Fatal("We had an error on downloading file ", fname, err)
+						}
+						fmt.Printf("Download of file %v is successful %v \n", fname)
+						check, err := sonar_helpers.Check_sha1(fname, f.Fingerprint)
+						if err != nil {
+							fmt.Printf("Error with sha1 on this file %v with error \n", f.Name, err)
+
+						}
+						if check == false {
+							fmt.Printf("Error with sha1 on this file %v \n", f.Name)
+							continue
+						}
+
 					}
-					fmt.Printf("Download of file %v is successful %v", fname, res)
+					sonar_helpers.Process_Hosts(fname)
+					//country, city, region, asn := sonar_helpers.Lookup_ip("8.8.8.8")
+					//fmt.Printf("We got Country: %v\n City: %v\n Region: %v\n ASN: %v\n", country, city, region, asn)
 
 				}
 

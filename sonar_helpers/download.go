@@ -63,11 +63,10 @@ func DownloadFeed() (s SonarStudies) {
 	return *studies
 }
 
-func DownloadFile(url string, filename string) (file string, err error) {
+func DownloadFile(url string, filename string) (err error) {
 	out, err := os.Create(filename)
 	if err != nil {
-		file := ""
-		return file, err
+		return err
 	}
 	defer out.Close()
 	log.Printf("Started downloading %v \n", url)
@@ -78,9 +77,8 @@ func DownloadFile(url string, filename string) (file string, err error) {
 	defer resp.Body.Close()
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		file := ""
-		return file, err
+		return err
 	}
 	log.Printf("Finished downloading %v \n", url)
-	return filename, nil
+	return nil
 }
