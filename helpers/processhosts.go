@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sync"
 	"time"
 
 	"encoding/json"
@@ -38,8 +37,7 @@ type ProcessGeoIP struct {
 	id int
 }
 
-func file_reader(lookupchan chan Host, hostsfile string, wg *sync.WaitGroup, Done chan struct{}) {
-
+func file_reader(lookupchan chan Host, hostsfile string, Done chan struct{}) {
 
 	fmt.Println(hostsfile)
 	f, err := os.Open(hostsfile)
@@ -56,7 +54,6 @@ func file_reader(lookupchan chan Host, hostsfile string, wg *sync.WaitGroup, Don
 
 	reader := csv.NewReader(bufio.NewReader(hf))
 	for {
-		wg.Add(1)
 		data, err := reader.Read()
 		if err != nil {
 			if err == io.EOF {
@@ -66,7 +63,6 @@ func file_reader(lookupchan chan Host, hostsfile string, wg *sync.WaitGroup, Don
 					log.Println(err)
 				} */
 				fmt.Println("Got EOF we should be done!!!")
-				wg.Done()
 				return
 
 			}
@@ -93,53 +89,19 @@ func file_reader(lookupchan chan Host, hostsfile string, wg *sync.WaitGroup, Don
 		select {
 		case lookupchan <- newhost:
 		case <-Done:
-			wg.Done()
 			return
 		}
 
 	}
 }
 
-func ESWriter(indexchan chan Host,  Done chan struct{}) {
+func ESWriter(indexchan chan Host, Done chan struct{}) {
 
 	client, err := elastic.NewClient()
 	if err != nil {
 		log.Fatal(err)
 	}
-	//let's check if index exists:
-	exists, err := client.IndexExists("passive-ssl-sonar-hosts").Do()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if !exists {
-		mapping := `{
-    "settings":{
-        "number_of_shards":5,
-        "number_of_replicas":0
-    },
-    "mappings":{
-         "host" : {
-        "properties" : {
-          "host": {"type": "ip", "index": "analyzed"},
-          "hash": {"type": "string"},
-          "first_seen": {"type": "date", "format": "dateOptionalTime"},
-          "last_seen": {"type": "date", "format": "dateOptionalTime"},
-          "asn": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
-          "country_code": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
-          "city": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
-          "region": {"type": "string", "analyzer": "keyword", "index": "analyzed"},
-          "port": {"type": "integer"},
-          "source": {"type": "string"}
-        }
-      }
-        }
-    }
-}`
-		_, err = client.CreateIndex("passive-ssl-sonar-hosts").BodyString(mapping).Do()
-		if err != nil {
-			panic(err)
-		}
-	}
+
 	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(500).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
 	if bulkerr != nil {
 		fmt.Println(bulkerr)
@@ -155,9 +117,7 @@ func ESWriter(indexchan chan Host,  Done chan struct{}) {
 			indexDoc := elastic.NewBulkUpdateRequest().Index("passive-ssl-sonar-hosts").Type("host").Id(id).Doc(nh).DocAsUpsert(true)
 			p.Add(indexDoc)
 		case <-Done:
-			fmt.Println("Got done in es...flushing")
-			p.Flush()
-			return
+			break
 
 		}
 	}
@@ -169,6 +129,7 @@ func ESWriter(indexchan chan Host,  Done chan struct{}) {
 }
 
 func search_newhosts() {
+	go checkCreateSonarSSLIndex()
 	client, err := elastic.NewClient()
 	if err != nil {
 		log.Fatal(err)
@@ -220,9 +181,9 @@ func Process_Hosts(hostsfile string) {
 
 	lookupchan := make(chan Host, 10000)
 	indexchan := make(chan Host, 10000)
-	var wg sync.WaitGroup
 	Done := make(chan struct{})
 	defer close(Done)
+
 	fmt.Println("Starting import at: ", time.Now())
 	for w := 1; w <= 3; w++ {
 		go Lookup_ip(lookupchan, indexchan, Done)
@@ -230,10 +191,8 @@ func Process_Hosts(hostsfile string) {
 
 	//wg.Add(1)
 
-	go file_reader(lookupchan, hostsfile, &wg, Done)
 	go ESWriter(indexchan, Done)
-	//wg.Done()
-	wg.Wait()
+	go file_reader(lookupchan, hostsfile, Done)
 	fmt.Println("Finished import at: ", time.Now())
 	fmt.Println("Update first_seen started at: ", time.Now())
 

@@ -29,7 +29,7 @@ func Check_index_and_create(index string) bool {
 	return true
 }
 
-func checkCreateSonarSSLIndex()  {
+func checkCreateSonarSSLIndex() {
 	client, err := elastic.NewClient()
 	if err != nil {
 		log.Fatal(err)
