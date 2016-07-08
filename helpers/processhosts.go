@@ -178,7 +178,7 @@ func search_newhosts() {
 }
 
 func Process_Hosts(hostsfile string) {
-
+	checkCreateSonarSSLIndex()
 	lookupchan := make(chan Host, 10000)
 	indexchan := make(chan Host, 10000)
 	Done := make(chan struct{})
@@ -188,8 +188,6 @@ func Process_Hosts(hostsfile string) {
 	for w := 1; w <= 3; w++ {
 		go Lookup_ip(lookupchan, indexchan, Done)
 	}
-
-	//wg.Add(1)
 
 	go ESWriter(indexchan, Done)
 	go file_reader(lookupchan, hostsfile, Done)
