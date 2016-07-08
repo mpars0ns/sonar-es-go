@@ -1,4 +1,4 @@
-package sonar_helpers
+package helpers
 
 import (
 	"fmt"
@@ -18,11 +18,11 @@ func Lookup_ip(lookup chan Host, index chan Host, Done chan struct{}) {
 	for {
 		select {
 		case newhost := <-lookup:
-			newhost.Asn = lookup_asn(newhost.Host, *giasn)
-			newhost.CountryCode, newhost.City, newhost.Region = lookup_geo(newhost.Host, *gi)
+			newhost.Asn = lookup_asn(newhost.Host, giasn)
+			newhost.CountryCode, newhost.City, newhost.Region = lookup_geo(newhost.Host, gi)
 			index <- newhost
 		case <-Done:
-			fmt.Println("Sending done from Lookup \n")
+			fmt.Println("Sending done from Lookup")
 			return
 		}
 
@@ -38,16 +38,14 @@ func Lookup_ip(ip string) (country string, city string, region string, asn strin
 	return country, city, region, asn
 }*/
 
-func lookup_asn(ip string, giasn geoip.GeoIP) (asn string) {
+func lookup_asn(ip string, giasn *geoip.GeoIP) (asn string) {
 	asn = ""
 	name, _ := giasn.GetName(ip)
 	return name
 
-	return asn
-
 }
 
-func lookup_geo(ip string, gi geoip.GeoIP) (country string, city string, region string) {
+func lookup_geo(ip string, gi *geoip.GeoIP) (country string, city string, region string) {
 	country = ""
 	city = ""
 	region = ""

@@ -1,4 +1,4 @@
-package sonar_helpers
+package helpers
 
 import (
 	"crypto/sha1"

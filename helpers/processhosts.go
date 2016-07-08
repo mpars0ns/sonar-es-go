@@ -1,4 +1,4 @@
-package sonar_helpers
+package helpers
 
 import (
 	"bufio"
@@ -38,9 +38,8 @@ type ProcessGeoIP struct {
 	id int
 }
 
-func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done chan struct{}) {
+func file_reader(lookupchan chan Host, hostsfile string, wg *sync.WaitGroup, Done chan struct{}) {
 
-	defer wg.Done()
 
 	fmt.Println(hostsfile)
 	f, err := os.Open(hostsfile)
@@ -57,7 +56,7 @@ func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done
 
 	reader := csv.NewReader(bufio.NewReader(hf))
 	for {
-
+		wg.Add(1)
 		data, err := reader.Read()
 		if err != nil {
 			if err == io.EOF {
@@ -67,6 +66,7 @@ func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done
 					log.Println(err)
 				} */
 				fmt.Println("Got EOF we should be done!!!")
+				wg.Done()
 				return
 
 			}
@@ -92,14 +92,15 @@ func file_reader(lookupchan chan Host, hostsfile string, wg sync.WaitGroup, Done
 		}
 		select {
 		case lookupchan <- newhost:
- 		case <- Done: return
- 		}
+		case <-Done:
+			wg.Done()
+			return
+		}
 
 	}
 }
 
-func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}) {
-	defer wg.Done()
+func ESWriter(indexchan chan Host,  Done chan struct{}) {
 
 	client, err := elastic.NewClient()
 	if err != nil {
@@ -144,6 +145,7 @@ func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}) {
 		fmt.Println(bulkerr)
 	}
 	for {
+
 		select {
 		case nh := <-indexchan:
 			hasher := sha1.New()
@@ -155,12 +157,10 @@ func ESWriter(indexchan chan Host, wg sync.WaitGroup, Done chan struct{}) {
 		case <-Done:
 			fmt.Println("Got done in es...flushing")
 			p.Flush()
-			break
+			return
 
 		}
 	}
-	//bulkRequest := client.Bulk()
-
 	elasticerr := p.Close()
 	if elasticerr != nil {
 		log.Println(err)
@@ -181,7 +181,6 @@ func search_newhosts() {
 	query = query.MustNot(elastic.NewExistsQuery("first_seen"))
 	fmt.Println("Search hits are:")
 	sr, err := client.Scan().Index("passive-ssl-sonar-hosts").Query(query).FetchSource(true).Do()
-	//sr, err := client.Scroll().Index("passive-ssl-sonar-hosts").Query(query).Do()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -229,11 +228,11 @@ func Process_Hosts(hostsfile string) {
 		go Lookup_ip(lookupchan, indexchan, Done)
 	}
 
-	wg.Add(2)
+	//wg.Add(1)
 
-	go file_reader(lookupchan, hostsfile, wg, Done)
-	go ESWriter(indexchan, wg, Done)
-
+	go file_reader(lookupchan, hostsfile, &wg, Done)
+	go ESWriter(indexchan, Done)
+	//wg.Done()
 	wg.Wait()
 	fmt.Println("Finished import at: ", time.Now())
 	fmt.Println("Update first_seen started at: ", time.Now())
