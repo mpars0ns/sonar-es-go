@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"encoding/json"
+	"sync"
 )
 
 type Host struct {
@@ -33,11 +34,7 @@ func (h *Host) SetFirstSeen(ts string) {
 	h.FirstSeen = ts
 }
 
-type ProcessGeoIP struct {
-	id int
-}
-
-func file_reader(lookupchan chan Host, hostsfile string, Done chan struct{}) {
+func file_reader(lookupchan *chan Host, hostsfile string, Done chan struct{}) {
 
 	fmt.Println(hostsfile)
 	f, err := os.Open(hostsfile)
@@ -62,12 +59,13 @@ func file_reader(lookupchan chan Host, hostsfile string, Done chan struct{}) {
 				if lasterr != nil {
 					log.Println(err)
 				} */
-				fmt.Println("Got EOF we should be done!!!")
 				return
 
 			}
 		}
-
+		if len(data) < 2 {
+			continue
+		}
 		source := "sonar"
 		host, hash := data[0], data[1]
 		last_seen, _ := time.Parse("20060102", hostsfile[0:8])
@@ -87,29 +85,28 @@ func file_reader(lookupchan chan Host, hostsfile string, Done chan struct{}) {
 			newhost.Source = source
 		}
 		select {
-		case lookupchan <- newhost:
+		case *lookupchan <- newhost:
 		case <-Done:
 			return
 		}
-
 	}
 }
 
-func ESWriter(indexchan chan Host, Done chan struct{}) {
-
+func ESWriter(indexchan *chan Host, esWg *sync.WaitGroup, Done chan struct{}) {
+	defer esWg.Done()
 	client, err := elastic.NewClient()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error connecting to ES", err)
 	}
 
-	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(500).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
+	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(1000).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
 	if bulkerr != nil {
-		fmt.Println(bulkerr)
+		fmt.Println("Problem with the elastic bulk importer", bulkerr)
 	}
+OuterLoop:
 	for {
-
 		select {
-		case nh := <-indexchan:
+		case nh := <-*indexchan:
 			hasher := sha1.New()
 			hash_string := nh.Host + nh.Hash + nh.Source
 			hasher.Write([]byte(hash_string))
@@ -117,42 +114,41 @@ func ESWriter(indexchan chan Host, Done chan struct{}) {
 			indexDoc := elastic.NewBulkUpdateRequest().Index("passive-ssl-sonar-hosts").Type("host").Id(id).Doc(nh).DocAsUpsert(true)
 			p.Add(indexDoc)
 		case <-Done:
-			break
-
+			break OuterLoop
 		}
+	}
+	flusherr := p.Flush()
+	if flusherr != nil {
+		log.Println("Error in final flush", flusherr)
 	}
 	elasticerr := p.Close()
 	if elasticerr != nil {
-		log.Println(err)
+		log.Println("Error in closing bulk processor", err)
 	}
-
 }
 
 func search_newhosts() {
-	go checkCreateSonarSSLIndex()
 	client, err := elastic.NewClient()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error connecting to ES", err)
 	}
 	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(500).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
 	if bulkerr != nil {
-		fmt.Println(bulkerr)
+		fmt.Println("Problem with the elastic bulk importer", bulkerr)
 	}
 	query := elastic.NewBoolQuery()
 	query = query.MustNot(elastic.NewExistsQuery("first_seen"))
-	fmt.Println("Search hits are:")
 	sr, err := client.Scan().Index("passive-ssl-sonar-hosts").Query(query).FetchSource(true).Do()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(sr.TotalHits())
 
 	if sr.TotalHits() > 0 {
 		fmt.Printf("Found a total of %d hosts\n", sr.TotalHits())
 		for {
 			res, err := sr.Next()
 			if err == elastic.EOS {
-				break
+				fmt.Println("EOS END")
 			}
 			if err != nil {
 				log.Fatal(err)
@@ -179,21 +175,27 @@ func search_newhosts() {
 
 func Process_Hosts(hostsfile string) {
 	checkCreateSonarSSLIndex()
-	lookupchan := make(chan Host, 10000)
-	indexchan := make(chan Host, 10000)
+	lookupchan := make(chan Host)
+	indexchan := make(chan Host)
+	lookupDone := make(chan struct{})
 	Done := make(chan struct{})
-	defer close(Done)
+	var esWg sync.WaitGroup
+	var lookupWg sync.WaitGroup
 
-	fmt.Println("Starting import at: ", time.Now())
+	lookupWg.Add(3)
 	for w := 1; w <= 3; w++ {
-		go Lookup_ip(lookupchan, indexchan, Done)
+		go Lookup_ip(&lookupchan, &indexchan, &lookupWg, lookupDone)
 	}
-
-	go ESWriter(indexchan, Done)
-	go file_reader(lookupchan, hostsfile, Done)
+	esWg.Add(1)
+	go ESWriter(&indexchan, &esWg, Done)
+	fmt.Println("Starting import at: ", time.Now())
+	file_reader(&lookupchan, hostsfile, Done)
+	close(lookupDone)
+	lookupWg.Wait()
+	close(Done)
+	esWg.Wait()
 	fmt.Println("Finished import at: ", time.Now())
 	fmt.Println("Update first_seen started at: ", time.Now())
-
 	// Now we need to go back and update...hopefully it works
 	search_newhosts()
 	fmt.Println("Update first_seen finished at: ", time.Now())

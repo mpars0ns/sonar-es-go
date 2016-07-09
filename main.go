@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mpars0ns/sonar-es-go/sonar_helpers"
+	"github.com/mpars0ns/sonar-es-go/helpers"
 	"gopkg.in/olivere/elastic.v3"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -16,14 +17,14 @@ type SonarImportedFile struct {
 
 func main() {
 	client, err := elastic.NewClient()
-	import_check := sonar_helpers.Check_index_and_create("scansio-sonar-ssl-imported")
+	import_check := helpers.Check_index_and_create("scansio-sonar-ssl-imported")
 	if import_check == false {
 		log.Fatal("We couldn't create a index properly exit out now!")
 	}
 	query := elastic.NewMatchAllQuery()
 	searchResult, err := client.Search().Index("scansio-sonar-ssl-imported").Query(query).Do()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("error running test MatchAll query on scansio index", err)
 	}
 	fmt.Println(searchResult.Hits.TotalHits)
 	importedfiles := map[string]bool{}
@@ -34,12 +35,12 @@ func main() {
 			err := json.Unmarshal(*hit.Source, &t)
 
 			if err != nil {
-				fmt.Println("we had an error: ", err)
+				fmt.Println("we had an error decoding hits from MatchAll: ", err)
 			}
 			importedfiles[t.File] = true
 		}
 	}
-	res := sonar_helpers.DownloadFeed()
+	res := helpers.DownloadFeed()
 	for _, i := range res.Studies {
 		if i.Uniqid == "sonar.ssl" {
 			for _, f := range i.Files {
@@ -57,14 +58,14 @@ func main() {
 				if strings.Contains(fname, "certs.gz") {
 					fmt.Printf("We need to import %v \n", fname)
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
-					err := sonar_helpers.DownloadFile(f.Name, fname)
+					err := helpers.DownloadFile(f.Name, fname)
 					if err != nil {
 						log.Fatal("We had an error in downloading file ", fname, err)
 					}
-					fmt.Printf("Download of file %v is successful %v", fname)
-					check, err := sonar_helpers.Check_sha1(fname, f.Fingerprint)
+					fmt.Printf("Download of file %v is successful", fname)
+					check, err := helpers.Check_sha1(fname, f.Fingerprint)
 					if err != nil {
-						fmt.Printf("Error with sha1 on this file %v with error \n", f.Name, err)
+						fmt.Printf("Error with sha1 on this file %v with error %v \n", f.Name, err)
 						continue
 					}
 					if check == false {
@@ -75,45 +76,44 @@ func main() {
 				if strings.Contains(fname, "hosts.gz") {
 					fmt.Printf("We need to import %v \n", fname)
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
-					checkdownload, _ := sonar_helpers.Check_downloaded(fname, f.Fingerprint)
+					checkdownload, _ := helpers.Check_downloaded(fname, f.Fingerprint)
 					if checkdownload == true {
-						check, _ := sonar_helpers.Check_sha1(fname, f.Fingerprint)
+						check, _ := helpers.Check_sha1(fname, f.Fingerprint)
 						if check == false {
-							err := sonar_helpers.DownloadFile(f.Name, fname)
+							err := helpers.DownloadFile(f.Name, fname)
 							if err != nil {
 								log.Fatal("We had an error on downloading file ", fname, err)
 							}
-							fmt.Printf("Download of file %v is successful %v \n", fname)
+							fmt.Printf("Download of file %v is successful \n", fname)
 						}
 					} else {
-						err := sonar_helpers.DownloadFile(f.Name, fname)
+						err := helpers.DownloadFile(f.Name, fname)
 						if err != nil {
 							log.Fatal("We had an error on downloading file ", fname, err)
 						}
-						fmt.Printf("Download of file %v is successful %v \n", fname)
-						check, err := sonar_helpers.Check_sha1(fname, f.Fingerprint)
+						fmt.Printf("Download of file %v is successful \n", fname)
+						check, err := helpers.Check_sha1(fname, f.Fingerprint)
 						if err != nil {
-							fmt.Printf("Error with sha1 on this file %v with error \n", f.Name, err)
-
+							fmt.Printf("Error with sha1 on this file %v with error %v \n", f.Name, err)
 						}
 						if check == false {
 							fmt.Printf("Error with sha1 on this file %v \n", f.Name)
 							continue
 						}
-
 					}
-					sonar_helpers.Process_Hosts(fname)
+					helpers.Process_Hosts(fname)
 					parsed_file := SonarImportedFile{File: fname, Sha1: f.Fingerprint}
 					_, err := client.Index().Index("scansio-sonar-ssl-imported").Type("imported-file").Id(f.Fingerprint).BodyJson(parsed_file).Do()
 					if err != nil {
 						// Handle error
 						panic(err)
 					}
+					removeErr := os.Remove(fname)
+					if removeErr != nil {
+						fmt.Println(removeErr)
+					}
 				}
-
 			}
 		}
-
 	}
-
 }
