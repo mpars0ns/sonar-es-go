@@ -54,13 +54,7 @@ func file_reader(lookupchan *chan Host, hostsfile string, Done chan struct{}) {
 		data, err := reader.Read()
 		if err != nil {
 			if err == io.EOF {
-				//stuff ehere for last bulk or something like that
-				/*_, lasterr := bulkRequest.Do()
-				if lasterr != nil {
-					log.Println(err)
-				} */
 				return
-
 			}
 		}
 		if len(data) < 2 {
@@ -68,8 +62,8 @@ func file_reader(lookupchan *chan Host, hostsfile string, Done chan struct{}) {
 		}
 		source := "sonar"
 		host, hash := data[0], data[1]
-		last_seen, _ := time.Parse("20060102", hostsfile[0:8])
-		lastseen := last_seen.Format(time.RFC3339)
+		lastSeen, _ := time.Parse("20060102", hostsfile[0:8])
+		lastseen := lastSeen.Format(time.RFC3339)
 		newhost := Host{}
 		if hostsfile[0:8] == "20131030" {
 			firstseen := lastseen
@@ -174,7 +168,7 @@ func search_newhosts() {
 }
 
 func Process_Hosts(hostsfile string) {
-	checkCreateSonarSSLIndex()
+	checkCreateSonaHostsSSLIndex()
 	lookupchan := make(chan Host)
 	indexchan := make(chan Host)
 	lookupDone := make(chan struct{})

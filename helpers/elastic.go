@@ -33,7 +33,7 @@ func Check_index_and_create(index string) bool {
 	return true
 }
 
-func checkCreateSonarSSLIndex() {
+func checkCreateSonaHostsSSLIndex() {
 	client, err := elastic.NewClient()
 	if err != nil {
 		log.Fatal(err)
@@ -68,6 +68,38 @@ func checkCreateSonarSSLIndex() {
     }
 }`
 		_, err = client.CreateIndex("passive-ssl-sonar-hosts").BodyString(mapping).Do()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Index Created")
+		fmt.Println("Sleeping to allow ES to allocate indexes")
+		time.Sleep(5 * time.Second)
+		return
+	}
+	fmt.Println("The index already existed")
+	return
+}
+
+
+
+func checkCreateSonarCertsSSLIndex() {
+	client, err := elastic.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	//let's check if index exists:
+	exists, err := client.IndexExists("passive-ssl-sonar-certs").Do()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !exists {
+		mapping := `{
+    "settings":{
+        "number_of_shards":5,
+        "number_of_replicas":0
+    }
+}`
+		_, err = client.CreateIndex("passive-ssl-sonar-certs").BodyString(mapping).Do()
 		if err != nil {
 			panic(err)
 		}

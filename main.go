@@ -6,7 +6,7 @@ import (
 	"github.com/mpars0ns/sonar-es-go/helpers"
 	"gopkg.in/olivere/elastic.v3"
 	"log"
-	"os"
+	//"os"
 	"strings"
 )
 
@@ -46,7 +46,6 @@ func main() {
 			for _, f := range i.Files {
 				fname := ""
 				if strings.Contains(f.Name, "20131030-20150518") {
-					fmt.Println("We have the granddaddy")
 					fname = "20131030-20150518_certs.gz"
 				} else {
 					fname = f.Name[48:65]
@@ -58,6 +57,18 @@ func main() {
 				if strings.Contains(fname, "certs.gz") {
 					fmt.Printf("We need to import %v \n", fname)
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
+					checkdownload, _ := helpers.Check_downloaded(fname, f.Fingerprint)
+					if checkdownload == true {
+						check, _ := helpers.Check_sha1(fname, f.Fingerprint)
+						if check == false {
+							err := helpers.DownloadFile(f.Name, fname)
+							if err != nil {
+								log.Fatal("We had an error on downloading file ", fname, err)
+							}
+							fmt.Printf("Download of file %v is successful \n", fname)
+						}
+					}
+						/*
 					err := helpers.DownloadFile(f.Name, fname)
 					if err != nil {
 						log.Fatal("We had an error in downloading file ", fname, err)
@@ -71,8 +82,10 @@ func main() {
 					if check == false {
 						fmt.Printf("Error with sha1 on this file %v \n", f.Name)
 						continue
-					}
+					} */
+					helpers.Process_Certs(fname)
 				}
+				/*
 				if strings.Contains(fname, "hosts.gz") {
 					fmt.Printf("We need to import %v \n", fname)
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
@@ -112,7 +125,7 @@ func main() {
 					if removeErr != nil {
 						fmt.Println(removeErr)
 					}
-				}
+				} */
 			}
 		}
 	}
