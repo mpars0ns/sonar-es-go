@@ -8,6 +8,7 @@ import (
 	"log"
 	//"os"
 	"strings"
+	"os"
 )
 
 type SonarImportedFile struct {
@@ -68,7 +69,7 @@ func main() {
 							fmt.Printf("Download of file %v is successful \n", fname)
 						}
 					}
-						/*
+
 					err := helpers.DownloadFile(f.Name, fname)
 					if err != nil {
 						log.Fatal("We had an error in downloading file ", fname, err)
@@ -82,10 +83,20 @@ func main() {
 					if check == false {
 						fmt.Printf("Error with sha1 on this file %v \n", f.Name)
 						continue
-					} */
+					}
 					helpers.Process_Certs(fname)
+					parsed_file := SonarImportedFile{File: fname, Sha1: f.Fingerprint}
+					_, certserr := client.Index().Index("scansio-sonar-ssl-imported").Type("imported-file").Id(f.Fingerprint).BodyJson(parsed_file).Do()
+					if certserr != nil {
+						// Handle error
+						panic(err)
+					}
+					removeCertsErr := os.Remove(fname)
+					if removeCertsErr != nil {
+						fmt.Println(removeCertsErr)
+					}
 				}
-				/*
+
 				if strings.Contains(fname, "hosts.gz") {
 					fmt.Printf("We need to import %v \n", fname)
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
@@ -116,16 +127,16 @@ func main() {
 					}
 					helpers.Process_Hosts(fname)
 					parsed_file := SonarImportedFile{File: fname, Sha1: f.Fingerprint}
-					_, err := client.Index().Index("scansio-sonar-ssl-imported").Type("imported-file").Id(f.Fingerprint).BodyJson(parsed_file).Do()
-					if err != nil {
+					_, hostserr := client.Index().Index("scansio-sonar-ssl-imported").Type("imported-file").Id(f.Fingerprint).BodyJson(parsed_file).Do()
+					if hostserr != nil {
 						// Handle error
-						panic(err)
+						panic(hostserr)
 					}
-					removeErr := os.Remove(fname)
-					if removeErr != nil {
-						fmt.Println(removeErr)
+					removeHostsErr := os.Remove(fname)
+					if removeHostsErr != nil {
+						fmt.Println(removeHostsErr)
 					}
-				} */
+				}
 			}
 		}
 	}
