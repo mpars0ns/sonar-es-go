@@ -62,14 +62,29 @@ func main() {
 					if checkdownload == true {
 						check, _ := helpers.Check_sha1(fname, f.Fingerprint)
 						if check == false {
+							fmt.Println("Checked File returned false")
 							err := helpers.DownloadFile(f.Name, fname)
 							if err != nil {
 								log.Fatal("We had an error on downloading file ", fname, err)
 							}
-							fmt.Printf("Download of file %v is successful \n", fname)
+						}
+						fmt.Printf("Download of file %v is successful \n", fname)
+
+					} else {
+						err := helpers.DownloadFile(f.Name, fname)
+						if err != nil {
+							log.Fatal("We had an error on downloading file ", fname, err)
+						}
+						fmt.Printf("Download of file %v is successful \n", fname)
+						check, err := helpers.Check_sha1(fname, f.Fingerprint)
+						if err != nil {
+							fmt.Printf("Error with sha1 on this file %v with error %v \n", f.Name, err)
+						}
+						if check == false {
+							fmt.Printf("Error with sha1 on this file %v \n", f.Name)
+							continue
 						}
 					}
-
 					err := helpers.DownloadFile(f.Name, fname)
 					if err != nil {
 						log.Fatal("We had an error in downloading file ", fname, err)
