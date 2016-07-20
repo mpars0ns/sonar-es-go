@@ -143,6 +143,9 @@ func search_newhosts() {
 			res, err := sr.Next()
 			if err == elastic.EOS {
 				fmt.Println("EOS END")
+				fmt.Println(res.TotalHits())
+				p.Flush()
+				continue
 			}
 			if err != nil {
 				log.Fatal(err)

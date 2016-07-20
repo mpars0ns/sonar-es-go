@@ -60,6 +60,7 @@ func main() {
 					fmt.Printf("%v %v %v %v \n", f.Name, f.Size, f.Fingerprint, f.UpdatedAt)
 					checkdownload, _ := helpers.Check_downloaded(fname, f.Fingerprint)
 					if checkdownload == true {
+						fmt.Println("Check matched")
 						check, _ := helpers.Check_sha1(fname, f.Fingerprint)
 						if check == false {
 							fmt.Println("Checked File returned false")
@@ -84,20 +85,6 @@ func main() {
 							fmt.Printf("Error with sha1 on this file %v \n", f.Name)
 							continue
 						}
-					}
-					err := helpers.DownloadFile(f.Name, fname)
-					if err != nil {
-						log.Fatal("We had an error in downloading file ", fname, err)
-					}
-					fmt.Printf("Download of file %v is successful", fname)
-					check, err := helpers.Check_sha1(fname, f.Fingerprint)
-					if err != nil {
-						fmt.Printf("Error with sha1 on this file %v with error %v \n", f.Name, err)
-						continue
-					}
-					if check == false {
-						fmt.Printf("Error with sha1 on this file %v \n", f.Name)
-						continue
 					}
 					helpers.Process_Certs(fname)
 					parsed_file := SonarImportedFile{File: fname, Sha1: f.Fingerprint}
