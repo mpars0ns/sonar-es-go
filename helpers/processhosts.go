@@ -142,10 +142,9 @@ func search_newhosts() {
 		for {
 			res, err := sr.Next()
 			if err == elastic.EOS {
-				fmt.Println("EOS END")
-				fmt.Println(res.TotalHits())
+				fmt.Println("EOS END Do one last query and see what happens")
 				p.Flush()
-				continue
+				break
 			}
 			if err != nil {
 				log.Fatal(err)
@@ -179,8 +178,8 @@ func Process_Hosts(hostsfile string) {
 	var esWg sync.WaitGroup
 	var lookupWg sync.WaitGroup
 
-	lookupWg.Add(3)
-	for w := 1; w <= 3; w++ {
+	lookupWg.Add(4)
+	for w := 1; w <= 4; w++ {
 		go Lookup_ip(&lookupchan, &indexchan, &lookupWg, lookupDone)
 	}
 	esWg.Add(1)
@@ -195,6 +194,7 @@ func Process_Hosts(hostsfile string) {
 	fmt.Println("Update first_seen started at: ", time.Now())
 	// Now we need to go back and update...hopefully it works
 	search_newhosts()
+	search_newhosts() // run a second time to see if we find any stragglers
 	fmt.Println("Update first_seen finished at: ", time.Now())
 
 }

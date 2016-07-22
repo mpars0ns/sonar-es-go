@@ -102,7 +102,7 @@ OuterLoop:
 
 func Process_Certs(certsfile string) {
 	checkCreateSonarCertsSSLIndex()
-	indexchan := make(chan []string, 10000)
+	indexchan := make(chan []string, 20000)
 	Done := make(chan struct{})
 	var esWg sync.WaitGroup
 

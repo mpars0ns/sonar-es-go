@@ -106,33 +106,15 @@ func checkCreateSonarCertsSSLIndex() {
               "authority_info_access": {
                 "properties": {
                   "issuer_urls": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "ocsp_urls": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   }
                 }
               },
               "authority_key_id": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "basic_constraints": {
                 "properties": {
@@ -145,22 +127,10 @@ func checkCreateSonarCertsSSLIndex() {
                 }
               },
               "certificate_policies": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "crl_distribution_points": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "extended_key_usage": {
                 "type": "long"
@@ -247,13 +217,7 @@ func checkCreateSonarCertsSSLIndex() {
                 }
               },
               "subject_key_id": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               }
             }
           },
@@ -278,13 +242,7 @@ func checkCreateSonarCertsSSLIndex() {
                 }
               },
               "country": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "locality": {
                 "type": "string",
@@ -314,13 +272,7 @@ func checkCreateSonarCertsSSLIndex() {
                 }
               },
               "postal_code": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "province": {
                 "type": "string",
@@ -332,13 +284,7 @@ func checkCreateSonarCertsSSLIndex() {
                 }
               },
               "serial_number": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "street_address": {
                 "type": "string",
@@ -361,13 +307,7 @@ func checkCreateSonarCertsSSLIndex() {
             }
           },
           "serial_number": {
-            "type": "string",
-            "fields": {
-              "raw": {
-                "type": "string",
-                "index": "not_analyzed"
-              }
-            }
+            "type": "string"
           },
           "signature": {
             "properties": {
@@ -377,22 +317,10 @@ func checkCreateSonarCertsSSLIndex() {
               "signature_algorithm": {
                 "properties": {
                   "name": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "oid": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   }
                 }
               },
@@ -400,13 +328,7 @@ func checkCreateSonarCertsSSLIndex() {
                 "type": "boolean"
               },
               "value": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               }
             }
           },
@@ -422,13 +344,7 @@ func checkCreateSonarCertsSSLIndex() {
                 }
               },
               "oid": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               }
             }
           },
@@ -498,13 +414,7 @@ func checkCreateSonarCertsSSLIndex() {
                 }
               },
               "serial_number": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "street_address": {
                 "type": "string",
@@ -531,129 +441,51 @@ func checkCreateSonarCertsSSLIndex() {
               "dsa_public_key": {
                 "properties": {
                   "g": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "p": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "q": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "y": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   }
                 }
               },
               "ecdsa_public_key": {
                 "properties": {
                   "b": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "gx": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "gy": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "n": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "p": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "x": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "y": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   }
                 }
               },
               "key_algorithm": {
                 "properties": {
                   "name": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   },
                   "oid": {
-                    "type": "string",
-                    "fields": {
-                      "raw": {
-                        "type": "string",
-                        "index": "not_analyzed"
-                      }
-                    }
+                    "type": "string"
                   }
                 }
               },
@@ -678,22 +510,10 @@ func checkCreateSonarCertsSSLIndex() {
                 "type": "boolean"
               },
               "id": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               },
               "value": {
-                "type": "string",
-                "fields": {
-                  "raw": {
-                    "type": "string",
-                    "index": "not_analyzed"
-                  }
-                }
+                "type": "string"
               }
             }
           },
