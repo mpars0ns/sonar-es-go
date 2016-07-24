@@ -93,7 +93,7 @@ func ESWriter(indexchan *chan Host, esWg *sync.WaitGroup, Done chan struct{}) {
 		log.Fatal("error connecting to ES", err)
 	}
 
-	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(1000).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
+	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(2).BulkActions(1000).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
 	if bulkerr != nil {
 		fmt.Println("Problem with the elastic bulk importer", bulkerr)
 	}
@@ -126,7 +126,7 @@ func search_newhosts() {
 	if err != nil {
 		log.Fatal("error connecting to ES", err)
 	}
-	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(1).BulkActions(500).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
+	p, bulkerr := client.BulkProcessor().Name("HostImporter").Workers(2).BulkActions(500).BulkSize(2 << 20).FlushInterval(30 * time.Second).Do()
 	if bulkerr != nil {
 		fmt.Println("Problem with the elastic bulk importer", bulkerr)
 	}
@@ -182,11 +182,8 @@ func Process_Hosts(hostsfile string) {
 	for w := 1; w <= 4; w++ {
 		go Lookup_ip(&lookupchan, &indexchan, &lookupWg, lookupDone)
 	}
-	esWg.Add(2)
-	for ew := 1; ew <= 2; ew++ {
+	esWg.Add(1)
 		go ESWriter(&indexchan, &esWg, Done)
-	}
-
 	fmt.Println("Starting import at: ", time.Now())
 	file_reader(&lookupchan, hostsfile, Done)
 	close(lookupDone)

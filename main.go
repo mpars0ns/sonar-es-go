@@ -6,7 +6,6 @@ import (
 	"github.com/mpars0ns/sonar-es-go/helpers"
 	"gopkg.in/olivere/elastic.v3"
 	"log"
-	//"os"
 	"os"
 	"strings"
 )
