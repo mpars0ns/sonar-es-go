@@ -80,8 +80,6 @@ func checkCreateSonaHostsSSLIndex() {
 	return
 }
 
-
-
 func checkCreateSonarCertsSSLIndex() {
 	client, err := elastic.NewClient()
 	if err != nil {

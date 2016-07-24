@@ -7,8 +7,8 @@ import (
 	"gopkg.in/olivere/elastic.v3"
 	"log"
 	//"os"
-	"strings"
 	"os"
+	"strings"
 )
 
 type SonarImportedFile struct {
@@ -23,7 +23,7 @@ func main() {
 		log.Fatal("We couldn't create a index properly exit out now!")
 	}
 	query := elastic.NewMatchAllQuery()
-	searchResult, err := client.Search().Index("scansio-sonar-ssl-imported").Query(query).Do()
+	searchResult, err := client.Search().Index("scansio-sonar-ssl-imported").Query(query).Size(3000).Do()
 	if err != nil {
 		log.Fatal("error running test MatchAll query on scansio index", err)
 	}
@@ -52,7 +52,6 @@ func main() {
 					fname = f.Name[48:65]
 				}
 				if importedfiles[fname] {
-					fmt.Printf("Already imported %v", fname)
 					continue
 				}
 				if strings.Contains(fname, "certs.gz") {

@@ -182,8 +182,11 @@ func Process_Hosts(hostsfile string) {
 	for w := 1; w <= 4; w++ {
 		go Lookup_ip(&lookupchan, &indexchan, &lookupWg, lookupDone)
 	}
-	esWg.Add(1)
-	go ESWriter(&indexchan, &esWg, Done)
+	esWg.Add(2)
+	for ew := 1; ew <= 2; ew++ {
+		go ESWriter(&indexchan, &esWg, Done)
+	}
+
 	fmt.Println("Starting import at: ", time.Now())
 	file_reader(&lookupchan, hostsfile, Done)
 	close(lookupDone)
